@@ -1,0 +1,63 @@
+﻿# Mini-project#2
+# "Atspėk skaičių"
+
+import simplegui
+from random import randint
+
+def init():
+    print ""
+    global number, win, guessesLeft, message1, message2
+    number = randint (1, 100)
+    win = False
+    guessesLeft = 10
+    message1 = ""
+    message2 = "Like spejimai: " + str (guessesLeft)
+    return None
+
+def nothing():
+    return None
+
+def check():
+    global number, win, guessesLeft, message1, message2
+    guess = float (inputBox.get_text() )
+    
+    if guess != guess:
+        return None
+    
+    if not win and guessesLeft <= 0:
+        message1 = "Tu pralaimejai, bandyk dar"
+    
+    elif guess < number:
+        message1 = "Per mazai"
+        
+    elif guess == number:
+        message1 = "Atspejai, sveikinu!"
+        win = True
+        
+    else:
+        message1 = "Per daug"
+        
+    guessesLeft -= 1
+    message2 = "Like spejimai: " + str (guessesLeft)
+    return None
+
+def draw (canvas):
+    global message1, message2
+    textWidth1 = frame.get_canvas_textwidth (message1, 20, "monospace")
+    textWidth2 = frame.get_canvas_textwidth (message2, 20, "monospace")
+    #300 is canvas width
+    realWidth1 = (300 - textWidth1) / 2
+    realWidth2 = 300 - textWidth2
+    canvas.draw_text (message1, [realWidth1, 100], 20, "Red", "monospace")
+    canvas.draw_text (message2, [realWidth2, 200], 20, "Red", "monospace")
+
+# Create a frame and assign callbacks to event handlers
+init()
+frame = simplegui.create_frame("Home", 300, 200)
+inputBox = frame.add_input ("Guess", nothing, 50)
+frame.add_button ("Spek", check)
+frame.add_button ("Bandyti is naujo", init)
+frame.set_draw_handler (draw)
+
+# Start the frame animation
+frame.start()

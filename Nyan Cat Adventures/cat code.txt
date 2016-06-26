@@ -1,0 +1,966 @@
+﻿#Nyan Cat Adventures
+import simplegui
+import math
+import random
+
+#Globals
+DEBUG = False
+scrollSpeed = 5
+time = 0
+score = 0
+lives = 0
+dealWithIt = False
+dealWithItPos = 0
+dealWithItUp = False
+gameOver = False
+gameStarted = False
+sound = True
+paused = False
+maxPowerupTime = 240
+
+def newGame():
+    global time, score, lives, gameOver, gameStarted, cat, threadBalls, rockets, powerups
+    time = 0
+    score = 0
+    lives = 3
+    gameOver = False
+    gameStarted = True
+    cat.reset()
+    del threadBalls[:]
+    del rockets[:]
+    del powerups[:]
+    del bullets[:]
+    
+    if sound:
+        music.play()
+
+#Screen size parameters
+screenWidth = 800
+screenHeight = 600
+screenCenterWidth = screenWidth / 2.0
+screenCenterHeight = screenHeight / 2.0
+
+#Helper functions to handle transformations
+def angleToVector (angle):
+    return (math.cos (angle), math.sin (angle) )
+
+def vectorToAngle (vector):
+    return math.atan2 (vector[0], vector[1])      
+
+def magnitude (vector):
+    return math.sqrt (vector[0] ** 2 + vector[1] ** 2)
+
+def distance (a, b):
+    return math.sqrt ( (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
+def normalise (vector):
+    return (vector[0] / magnitude (vector), vector[1] / magnitude (vector) )
+
+def contains (point, polygon):
+    return point[0] >= polygon[0][0] and point[0] <= polygon[1][0] and point[1] >= polygon[1][1] and point[1] <= polygon[2][1]
+
+#Image info class
+class ImageInfo:
+    def __init__ (self, image):
+        self.image = image
+    
+    def getImage (self):
+        return self.image
+        
+    def getWidth (self):
+        return self.image.get_width()
+        
+    def getHeight (self):
+        return self.image.get_height()
+        
+    def getCenterWidth (self):
+        return self.image.get_width() / 2.0
+    
+    def getCenterHeight (self):
+        return self.image.get_height() / 2.0
+
+#Assets
+backgroundImage = simplegui.load_image ("https://www.dropbox.com/s/7ebs6s68zrz5c7c/Nyan%20Cat%20background%202.png?dl=1")
+backgroundInfo = ImageInfo (backgroundImage)
+
+catImage = simplegui.load_image ("https://www.dropbox.com/s/3he1zh4p5tp9kef/cat%20spritesheet.png?dl=1")
+catInfo = ImageInfo (catImage)
+
+threadBallImage = simplegui.load_image ("https://www.dropbox.com/s/cw6pnxhkb19ep71/siulai-sheet22.png?dl=1")
+threadBallInfo = ImageInfo (threadBallImage)
+
+rocketImage = simplegui.load_image ("https://www.dropbox.com/s/ws7zgz52dwv6mp2/raketa-sheet2.png?dl=1")
+rocketInfo = ImageInfo (rocketImage)
+
+rocketWarningImage = simplegui.load_image ("https://www.dropbox.com/s/oxttrr2jf14unvs/ispejimas.png?dl=1")
+rocketWarningInfo = ImageInfo (rocketWarningImage)
+
+dealWithItImage = simplegui.load_image ("http://www.roflcat.com/images/cats/Deal_With_It.jpg")
+dealWithItInfo = ImageInfo (dealWithItImage)
+
+glock17Image = simplegui.load_image ("https://www.dropbox.com/s/nonksep5gl2jcwm/Glock17.png?dl=1")
+glock17Info = ImageInfo (glock17Image)
+
+AK47Image = simplegui.load_image ("https://www.dropbox.com/s/5s5xcp8xmdnqqhs/AK47.png?dl=1")
+AK47Info = ImageInfo (AK47Image)
+
+RPG7Image = simplegui.load_image ("https://www.dropbox.com/s/7z3jb6xq61d43ab/RPG7.png?dl=1")
+RPG7Info = ImageInfo (RPG7Image)
+
+glock17IconImage = simplegui.load_image ("https://www.dropbox.com/s/dr4srwl2atko5cb/glock%20icon.png?dl=1")
+glock17IconInfo = ImageInfo (glock17IconImage)
+
+AK47IconImage = simplegui.load_image ("https://www.dropbox.com/s/kwj7lzzorx5453f/AK%20icon.png?dl=1")
+AK47IconInfo = ImageInfo (AK47IconImage)
+
+RPG7IconImage = simplegui.load_image ("https://www.dropbox.com/s/74nkk16ojkj1c8y/RPG%20icon.png?dl=1")
+RPG7IconInfo = ImageInfo (RPG7IconImage)
+
+glock17BulletImage = simplegui.load_image ("https://www.dropbox.com/s/loen6h20srjpgy7/Glock17%20bullet.png?dl=1")
+glock17BulletInfo = ImageInfo (glock17BulletImage)
+
+AK47BulletImage = simplegui.load_image ("https://www.dropbox.com/s/vvg6rj83tzzi4cd/AK47%20bullet.png?dl=1")
+AK47BulletInfo = ImageInfo (AK47BulletImage)
+
+RPG7MissileImage = simplegui.load_image ("https://www.dropbox.com/s/8wtbi4yufq99jr7/RPG7%20missile.png?dl=1")
+RPG7MissileInfo = ImageInfo (RPG7MissileImage)
+
+soundButtonImage = simplegui.load_image ("https://www.dropbox.com/s/re62b6mtvedokvg/sound%20button.png?dl=1")
+soundButtonInfo = ImageInfo (soundButtonImage)
+
+pauseButtonImage = simplegui.load_image ("https://www.dropbox.com/s/jdd6czydsll2isk/pause%20button.png?dl=1")
+pauseButtonInfo = ImageInfo (pauseButtonImage)
+
+#######################################################################
+#Sounds
+music = simplegui.load_sound ("https://www.dropbox.com/s/4x7od2sl321hfic/nyan%20cat.mp3?dl=1")
+
+gameOverSound = simplegui.load_sound ("https://www.dropbox.com/s/16tsj6d5c4r55j2/GameOver.mp3?dl=1")
+
+buttonSound = simplegui.load_sound ("https://www.dropbox.com/s/s9yb9ub97l4amof/ButtonPress.wav?dl=1")
+buttonSound.set_volume(0.5)
+
+glock17BulletSound = simplegui.load_sound ("https://www.dropbox.com/s/5ar6r1agfnbk1vu/glock_bullet.mp3?dl=1")
+glock17BulletSound.set_volume (0.2)
+                                           
+AK47BulletSound = simplegui.load_sound ("https://www.dropbox.com/s/ccf00iu78itw5gz/ak47-1_bullet.wav?dl=1")
+AK47BulletSound.set_volume (0.2)
+
+RPG7MissileSound = simplegui.load_sound ("https://www.dropbox.com/s/ze3ysz4v4rj9wwd/RPG_RocketLouncher_3.wav?dl=1")
+RPG7MissileSound.set_volume (0.2)
+
+reloadSound = simplegui.load_sound ("https://www.dropbox.com/s/6mvl9xjkvxtdpyi/AK47_LoadSound.mp3?dl=1")
+reloadSound.set_volume (1)
+                                        
+damageSound = simplegui.load_sound ("https://www.dropbox.com/s/40v08je6xrnu31e/AsteroidToCat1.wav?dl=1")
+damageSound.set_volume (0.8)
+                                      
+powerupSound = simplegui.load_sound ("https://www.dropbox.com/s/dx49l2q9ief9dvg/Powerup.wav?dl=1")
+powerupSound.set_volume (0.6)
+
+rocketSound = simplegui.load_sound ("https://www.dropbox.com/s/s3iqqvt7dc53vqr/ForRandomMissile.mp3?dl=1")
+rocketSound.set_volume (0.8)
+
+#Background class
+class Background:
+    def __init__ (self, imageInfo):
+        self.imageInfo = imageInfo
+        self.width = screenWidth
+        self.height = screenHeight
+        self.centerHeight = self.height / 2.0
+        self.pos1 = screenCenterWidth
+        self.pos2 = screenCenterWidth + self.width
+        
+    def update (self, scrollSpeed):
+        self.pos1 -= scrollSpeed
+        self.pos2 -= scrollSpeed
+    
+        if self.pos1 + screenCenterWidth < 0:
+            self.pos1 = self.width + screenCenterWidth - scrollSpeed
+        
+        elif self.pos2 + screenCenterWidth < 0:
+            self.pos2 = self.width + screenCenterWidth - scrollSpeed
+            
+    def draw (self, canvas):
+        canvas.draw_image (self.imageInfo.getImage(), (self.imageInfo.getCenterWidth(), self.imageInfo.getCenterHeight() ),
+                           (self.imageInfo.getWidth(), self.imageInfo.getHeight() ),
+                           (self.pos1, self.centerHeight), (self.width, self.height) )
+   
+        canvas.draw_image (self.imageInfo.getImage(), (self.imageInfo.getCenterWidth(), self.imageInfo.getCenterHeight() ),
+                           (self.imageInfo.getWidth(), self.imageInfo.getHeight() ),
+                           (self.pos2, self.centerHeight), (self.width, self.height) )
+        
+#Cat class
+class Cat:
+    def __init__ (self, imageInfo):
+        self.imageInfo = imageInfo
+        self.width = 100
+        self.height = 65
+        self.pos = (screenCenterWidth / 2.0, screenCenterHeight)
+        self.radius = self.height / 2.0
+        self.invincibilityTime = 50
+        self.invincible = False
+        self.delta = 0
+        self.controller = False
+        self.velocity = (0, 0)
+        self.powerup = None
+        self.powerupTime = 0
+        self.centerWidth = self.imageInfo.getCenterWidth() / 4.0
+        self.centerHeight = self.imageInfo.getCenterHeight() / 4.0
+        self.animation = (self.centerWidth, self.centerHeight)
+        
+    def update (self):
+        if self.powerup is not None and self.powerupTime < maxPowerupTime:
+            self.powerupTime += 1
+        
+        elif self.powerupTime == maxPowerupTime:
+            self.powerup = None
+            self.powerupTime = 0
+            self.animation = (self.animation[0], self.centerHeight)
+            
+            if sound:
+                reloadSound.play()
+        
+        if time % 10 == 0:
+            if self.animation[0] / self.centerWidth == 1:
+                self.animation = (self.centerWidth * 3, self.animation[1])
+                    
+            elif self.animation[0] / self.centerWidth == 3:
+                self.animation = (self.centerWidth, self.animation[1])
+                   
+            elif self.animation[0] / self.centerWidth == 5:
+                self.animation = (self.centerWidth * 7, self.animation[1])
+                       
+            elif self.animation[0] / self.centerWidth == 7:
+                self.animation = (self.centerWidth * 5, self.animation[1])
+
+        if self.invincible:
+            self.delta += 1
+            
+        if self.delta >= self.invincibilityTime:
+            self.delta = 0
+            self.invincible = False
+                
+        if self.controller:
+            self.pos = (self.pos[0] + scrollSpeed, self.pos[1])
+            
+            if self.pos[0] == screenCenterWidth / 2.0:
+                self.controller = False
+            
+        else:
+            if self.velocity[0] != 0 and self.pos[0] - self.width / 2 + self.velocity[0] >= 0 and self.pos[0] + self.width / 2 + self.velocity[0] <= screenWidth:
+                self.pos = (self.pos[0] + self.velocity[0], self.pos[1])
+        
+            if self.velocity[1] != 0 and self.pos[1] - self.height / 2 + self.velocity[1] >= 0 and self.pos[1] + self.height / 2 + self.velocity[1] <= screenHeight:
+                self.pos = (self.pos[0], self.pos[1] + self.velocity[1])
+    
+    def draw (self, canvas):
+        if not self.invincible or (self.delta / (self.invincibilityTime / 5) ) % 2 == 0:
+            canvas.draw_image (self.imageInfo.getImage(), self.animation,
+                               (self.imageInfo.getWidth() / 4, self.imageInfo.getHeight() / 4),
+                                self.pos, (self.width, self.height) )
+        
+        if DEBUG:
+            canvas.draw_circle (self.pos, self.radius, 10, "Green")
+        
+    def reset (self):
+        self.controller = True
+        self.pos = (-self.width / 2.0, screenCenterHeight)
+        self.invincible = True
+        self.delta = 0
+        self.velocity = (0, 0)
+        self.powerup = None
+        self.powerupTime = 0
+        
+    def setVelocity (self, vel1 = None, vel2 = None):
+        if not vel1 is None and not vel2 is None:
+            self.velocity = (vel1, vel2)
+            
+        elif not vel1 is None:
+            self.velocity = (vel1, self.velocity[1])
+            
+            if vel1 < 0:
+                self.animation = (self.centerWidth * 5, self.animation[1])
+                
+            else:
+                self.animation = (self.centerWidth, self.animation[1])
+            
+        elif not vel2 is None:
+            self.velocity = (self.velocity[0], vel2)
+    
+    def getWidth (self):
+        return self.width
+    
+    def getHeight (self):
+        return self.height
+    
+    def getPos (self):
+        return self.pos
+    
+    def getPowerup (self):
+        return self.powerup
+    
+    def getPowerupTime (self):
+        return self.powerupTime
+    
+    def detectCollision (self, objects):
+        for i in xrange (0, len (objects) ):
+            if distance (self.pos, objects[i].getPos() ) < (self.radius + objects[i].getRadius() ):
+                return i
+        
+        return None
+    
+    def collide (self, objects):
+        if not self.invincible:
+            global lives, gameOver
+            
+            i = self.detectCollision (objects)
+            
+            if i is not None:
+                del objects[i]
+                lives -= 1
+                self.invincible = True
+                
+                if sound:
+                    damageSound.play()
+                
+            if lives <= 0:
+                gameOver = True\
+                
+                if sound:
+                    gameOverSound.play()
+                    music.rewind()
+                
+    def takePowerup (self, objects):
+        global score
+        
+        i = self.detectCollision (objects)
+
+        if i is not None:
+            self.powerup = objects[i].getPower()
+            del objects[i]
+            
+            if self.powerup == "Glock17":
+                score += 10
+                self.animation = (self.centerWidth, self.centerHeight * 3)
+                
+            elif self.powerup == "AK47":
+                score += 25
+                self.animation = (self.centerWidth, self.centerHeight * 5)
+                
+            else:
+                score += 50
+                self.animation = (self.centerWidth, self.centerHeight * 7)
+                
+            self.powerupTime = 0
+            
+            if sound:
+                powerupSound.play()
+     
+#Thread ball class
+class ThreadBall:
+    def __init__ (self, imageInfo, deadly = False):
+        self.imageInfo = imageInfo
+        if not deadly:
+            self.size = random.random() * 96 + 32
+            self.radius = self.size / 2.0
+            self.pos = (screenWidth + self.radius, random.random() * screenHeight)
+            self.direction = random.random() * 50 + 245   
+            self.velocity = (angleToVector (self.direction)[0] * (scrollSpeed - 2) + 2,
+                             angleToVector (self.direction)[1] * (scrollSpeed - 2) + 2)
+        else:
+            self.size = screenHeight
+            self.radius = self.size / 2.0
+            self.pos = (screenWidth + self.radius, screenHeight / 2.0)
+            self.direction = 270
+            self.velocity = (5, 0)
+            
+        self.animation = self.imageInfo.getCenterWidth() / 12
+        
+    def update (self):
+        if time % 2 == 0:
+            if self.animation + self.imageInfo.getWidth() / 12 <= self.imageInfo.getWidth():
+                self.animation += self.imageInfo.getWidth() / 12
+            
+            else:
+                self.animation = self.imageInfo.getCenterWidth() / 12
+        
+        self.pos = (self.pos[0] - self.velocity[0], self.pos[1] - self.velocity[1])
+
+    def draw (self, canvas):
+        canvas.draw_image (self.imageInfo.getImage(), (self.animation, self.imageInfo.getCenterHeight() ),
+                           (self.imageInfo.getWidth() / 12, self.imageInfo.getHeight() ),
+                            self.pos, (self.size, self.size) )
+        
+        if DEBUG:
+            canvas.draw_circle (self.pos, self.radius, 10, "Red")
+                         
+    def getPos (self):
+        return self.pos
+    
+    def getSize (self):
+        return self.size
+    
+    def getRadius (self):
+        return self.radius
+    
+    def reduce (self, amount):
+        self.size /= amount
+        self.radius = self.size / 2.0
+                    
+    def detectCollision (self, object):
+        if distance (self.pos, object.getPos() ) < (self.radius + object.getRadius() ):
+            return True
+        
+        else:
+            return False
+    
+    def collide (self, otherObject):
+        self.direction -= 180
+        self.velocity = (angleToVector (self.direction)[0] * (scrollSpeed - 2) + 2,
+                         angleToVector (self.direction)[1] * (scrollSpeed - 2) + 2)
+    
+    def correctPosition (self, objects):
+        if len (objects) != 0:
+            tries = 0
+            
+            while True:
+                tries += 1
+                reset = False
+              
+                for i in xrange (0, len (objects) ): 
+                    if self != objects[i]:
+                        if self.detectCollision (objects[i]):
+                            reset = True
+                            self.pos = (screenWidth, random.random() * screenHeight)
+                            
+                if tries >= 5:
+                    objects.pop()
+                           
+                if not reset or tries >= 5:
+                    break
+                    
+#Rocket Class
+class Rocket:
+    def __init__ (self, imageInfo1, imageInfo2):
+        self.rocketImage = imageInfo1
+        self.warningImage = imageInfo2
+        self.width = 100
+        self.height = 40
+        self.radius = self.height / 2.0
+        self.warningSize = 48
+        self.warningRadius = self.warningSize / 2.0
+        self.delta = 0
+        self.velocity = -20
+        self.pos = (screenWidth + self.radius, random.random() * screenHeight)
+        self.warningPos = (screenWidth - self.warningRadius, self.pos[1])
+        self.animation = imageInfo1.getCenterWidth() / 5
+        
+    def update (self):
+        if self.delta < 100:
+            self.delta += 1
+            
+            if self.delta % 10 == 0:
+                self.warningSize = self.warningRadius * 2 + self.delta / 10
+        
+        else:
+            if sound:
+                rocketSound.play()
+            
+            if time % 2 == 0:
+                if self.animation + self.rocketImage.getWidth() / 5 <= self.rocketImage.getWidth():
+                    self.animation += self.rocketImage.getWidth() / 5
+                
+                else:
+                    self.animation = self.rocketImage.getCenterWidth() / 5
+            
+            self.pos = (self.pos[0] + self.velocity, self.pos[1])
+            
+    def draw (self, canvas):
+        if self.delta < 100:
+            canvas.draw_image (self.warningImage.getImage(), (self.warningImage.getCenterWidth(), self.warningImage.getCenterHeight() ),
+                               (self.warningImage.getWidth(), self.warningImage.getHeight() ),
+                                self.warningPos, (self.warningSize, self.warningSize) )
+            
+        else:
+            canvas.draw_image (self.rocketImage.getImage(), (self.animation, self.rocketImage.getCenterHeight() ),
+                               (self.rocketImage.getWidth() / 5, self.rocketImage.getHeight() ),
+                                self.pos, (self.width, self.height) )
+            
+            if DEBUG:
+                canvas.draw_circle (self.pos, self.radius, 10, "Yellow")
+    
+    def getPos (self):
+        return self.pos
+    
+    def getRadius (self):
+        return self.radius
+    
+class Powerup:
+    def __init__ (self, imageInfo, power):
+        self.power = power
+        self.imageInfo = imageInfo
+        self.width = 50
+        self.height = 25
+        self.radius = self.width / 2.0
+        self.pos = (screenWidth + self.radius, random.random() * screenHeight)
+        self.velocity = -scrollSpeed
+        
+    def update (self):
+        self.pos = (self.pos[0] + self.velocity, self.pos[1])
+        
+    def draw (self, canvas):
+        canvas.draw_circle (self.pos, self.radius, 5, "Black", "White")
+        
+        canvas.draw_image (self.imageInfo.getImage(), (self.imageInfo.getCenterWidth(), self.imageInfo.getCenterHeight() ),
+                           (self.imageInfo.getWidth(), self.imageInfo.getHeight() ),
+                            self.pos, (self.width, self.height) )
+        
+        canvas.draw_circle (self.pos, self.radius, 5, "Black")
+                
+    def getPower (self):
+        return self.power
+                
+    def getPos (self):
+        return self.pos
+    
+    def getRadius (self):
+        return self.radius
+    
+#Bullet class
+class Bullet:
+    def __init__ (self, imageInfo, weapon, pos, click, width, height):
+        self.imageInfo = imageInfo
+        self.weapon = weapon
+        self.pos = pos
+        self.direction = (click[0] - pos[0], click[1] - pos[1])
+        self.width = width
+        self.height = height
+        self.velocity = (normalise (self.direction)[0] * 20, normalise (self.direction)[1] * 20)
+        self.radius = imageInfo.getWidth() / 2
+        
+    def update (self):
+        self.pos = (self.pos[0] + self.velocity[0], self.pos[1] + self.velocity[1])
+        
+    def draw (self, canvas):
+        canvas.draw_image (self.imageInfo.getImage(), (self.imageInfo.getCenterWidth(), self.imageInfo.getCenterHeight() ),
+                           (self.imageInfo.getWidth(), self.imageInfo.getHeight() ),
+                            self.pos, (self.width, self.height), math.pi - vectorToAngle (self.direction) - math.pi / 2)   
+    
+    def getPos (self):
+        return self.pos
+        
+    def getRadius (self):
+        return self.radius
+    
+    def collide (self, obstacles):
+        global score
+        
+        for i in obstacles:
+            if distance (self.pos, i.getPos() ) < (self.radius + i.getRadius() ) and self.weapon == "Glock17":
+                i.reduce (1.01)
+                score += 1
+                
+            elif distance (self.pos, i.getPos() ) < (self.radius + i.getRadius() ) and self.weapon == "AK47":
+                i.reduce (1.1)
+                score += 2
+                
+            elif distance (self.pos, i.getPos() ) < (self.radius + i.getRadius() ) and self.weapon == "RPG7":
+                i.reduce (2)
+                score += 3
+    
+#Objects
+background = Background (backgroundInfo)
+cat = Cat (catInfo)
+threadBalls = []
+rockets = []
+powerups = []
+bullets = []
+
+#Buttons and their point coords
+tryAgainButton = [
+(screenCenterWidth * 0.75, screenCenterHeight * 1.25),
+(screenCenterWidth * 1.25, screenCenterHeight * 1.25),
+(screenCenterWidth * 1.25, screenCenterHeight * 1.5),
+(screenCenterWidth * 0.75, screenCenterHeight * 1.5) ]
+    
+newGameButton = [
+(screenCenterWidth * 0.7, screenCenterHeight * 0.6),
+(screenCenterWidth * 1.3, screenCenterHeight * 0.6),
+(screenCenterWidth * 1.3, screenCenterHeight * 0.85),
+(screenCenterWidth * 0.7, screenCenterHeight * 0.85) ]
+        
+freeSwagButton = [
+(screenCenterWidth * 0.7, screenCenterHeight * 1.25),
+(screenCenterWidth * 1.3, screenCenterHeight * 1.25),
+(screenCenterWidth * 1.3, screenCenterHeight * 1.5),
+(screenCenterWidth * 0.7, screenCenterHeight * 1.5) ]
+
+def gameOverMenu (canvas):
+    background.draw (canvas)
+    
+    textWidth1 = frame.get_canvas_textwidth ("Score: " + str (score), 50)
+    textCenter1 = (screenWidth - textWidth1) / 2.0
+    canvas.draw_text ("Score: " + str (score), (textCenter1, screenCenterHeight * 0.25), 50, "White")
+    
+    textWidth2 = frame.get_canvas_textwidth ("Game Over", 80)
+    textCenter2 = (screenWidth - textWidth2) / 2.0
+    canvas.draw_text ("Game Over", (textCenter2, screenCenterHeight * 0.75), 80, "Red")
+    
+    canvas.draw_polygon (tryAgainButton, 1, "Red", "Red")
+    canvas.draw_text ("Try again", (screenCenterWidth * 0.75, screenCenterHeight * 1.4), 50, "White")
+    
+def newGameMenu (canvas):
+    global dealWithIt, dealWithItPos, dealWithItUp
+    
+    background.update (scrollSpeed)
+    background.draw (canvas)
+    
+    textWidth = frame.get_canvas_textwidth ("Nyan Cat Adventures", 90)
+    textCenter = (screenWidth - textWidth) / 2.0
+    canvas.draw_text ("Nyan Cat Adventures", (textCenter, screenCenterHeight * 0.3), 90, "Aqua")
+    
+    if dealWithIt:
+        
+        if dealWithItPos == screenHeight and not dealWithItUp:
+            dealWithItUp = True
+            
+        elif dealWithItPos == 0 and dealWithItUp:
+            dealWithItUp = False
+            dealWithIt = False
+        
+        if dealWithItUp:
+            dealWithItPos -= 10
+            
+        else:
+            dealWithItPos += 10
+            
+        canvas.draw_image (dealWithItImage, (dealWithItInfo.getCenterWidth(), dealWithItInfo.getCenterHeight() ),
+                            (dealWithItInfo.getWidth(), dealWithItInfo.getHeight() ),
+                            (screenCenterWidth, dealWithItPos - dealWithItInfo.getCenterHeight() ),
+                            (dealWithItInfo.getWidth(), dealWithItInfo.getHeight() ) )
+    
+    canvas.draw_polygon (newGameButton, 1, "Navy", "Navy")
+    canvas.draw_text ("New Game", (screenCenterWidth * 0.725, screenCenterHeight * 0.775), 50, "White")
+    
+    canvas.draw_polygon (freeSwagButton, 1, "Lime", "Lime")
+    canvas.draw_text ("Free Swag", (screenCenterWidth * 0.725, screenCenterHeight * 1.425), 50, "White")
+
+def pause (canvas):
+    background.draw (canvas)
+    cat.draw (canvas)
+        
+    for i in list (threadBalls):
+        i.draw (canvas)
+        
+    for i in list (rockets):
+        i.draw (canvas)
+            
+    for i in list (powerups):
+        i.draw (canvas)
+                
+    for i in list (bullets):
+        i.draw (canvas)
+        
+    canvas.draw_text ("Score: " + str (score), (screenCenterWidth * 1.35, 50), 20, "White")
+    
+    textWidth = frame.get_canvas_textwidth ("Lives:", 20)
+    canvas.draw_text ("Lives:", (textWidth, 50), 20, "White")
+    
+    for i in xrange (0, lives):
+        canvas.draw_image (catImage, (catInfo.getCenterWidth() / 4, catInfo.getCenterHeight() / 4),
+                          (catInfo.getWidth() / 4, catInfo.getHeight() / 4),
+                          (120 + i * 40, 40), (40, 25) )
+        
+    textWidth = frame.get_canvas_textwidth ("Powerup:", 20)
+    realWidth = (screenWidth - textWidth) / 2.0
+    canvas.draw_text ("Powerup:", (realWidth, 50), 20, "White")
+        
+    if cat.getPowerup() == "Glock17":
+        glockCenterWidth = glock17IconInfo.getCenterWidth() / 9
+                
+        canvas.draw_image (glock17IconInfo.getImage(), (glockCenterWidth + glockCenterWidth * 2 * int (cat.getPowerupTime() / (maxPowerupTime / 9) ), glock17IconInfo.getCenterHeight() ),
+                          (glock17IconInfo.getWidth() / 9, glock17IconInfo.getHeight() ),
+                          (screenCenterWidth + textWidth, 37.5), (50, 50) )
+
+    elif cat.getPowerup() == "AK47":
+        AKCenterWidth = AK47IconInfo.getCenterWidth() / 9
+        
+        canvas.draw_image (AK47IconInfo.getImage(), (AKCenterWidth + AKCenterWidth * 2 * int (cat.getPowerupTime() / (maxPowerupTime / 9) ), AK47IconInfo.getCenterHeight() ),
+                          (AK47IconInfo.getWidth() / 9, AK47IconInfo.getHeight() ),
+                          (screenCenterWidth + textWidth, 37.5), (50, 50) )
+            
+    elif cat.getPowerup() == "RPG7":
+        RPGCenterWidth = RPG7IconInfo.getCenterWidth() / 9
+        
+        canvas.draw_image (RPG7IconInfo.getImage(), (RPGCenterWidth + RPGCenterWidth * 2 * int (cat.getPowerupTime() / (maxPowerupTime / 9) ), RPG7IconInfo.getCenterHeight() ),
+                          (RPG7IconInfo.getWidth() / 9, RPG7IconInfo.getHeight() ),
+                          (screenCenterWidth + textWidth, 37.5), (50, 50) )
+        
+    buttonCenter = 0
+        
+    if sound:
+        buttonCenter = soundButtonInfo.getCenterWidth() * 0.5
+            
+    else:
+        buttonCenter = soundButtonInfo.getCenterWidth() * 1.5
+            
+    canvas.draw_image (soundButtonImage, (buttonCenter, soundButtonInfo.getCenterHeight() ),
+                      (soundButtonInfo.getWidth() / 2, soundButtonInfo.getHeight() ),
+                      (screenCenterWidth * 1.9, 37.5), (64, 64) )
+        
+    canvas.draw_image (pauseButtonImage, (pauseButtonInfo.getCenterWidth() * 1.5, pauseButtonInfo.getCenterHeight() ),
+                      (pauseButtonInfo.getWidth() / 2, pauseButtonInfo.getHeight() ),
+                      (screenCenterWidth * 1.75, 37.5), (64, 64) )
+            
+        
+# Handler to draw on canvas
+def draw (canvas):
+    if gameOver:
+        gameOverMenu (canvas)
+        
+    elif not gameStarted:
+        newGameMenu (canvas)
+    
+    elif paused:
+        pause (canvas)
+        
+    else:
+        background.update (scrollSpeed)
+        background.draw (canvas)
+
+        cat.update()
+        cat.draw (canvas)
+        cat.collide (threadBalls)
+        cat.collide (rockets)
+        cat.takePowerup (powerups)
+    
+        for i in list (threadBalls):
+            i.update()
+            i.draw (canvas)
+        
+            if i.getPos()[0] + i.getSize() < 0 or i.getPos()[0] - i.getSize() > screenWidth or i.getPos()[1] + i.getSize() < 0 or i.getPos()[1] - i.getSize() > screenHeight or i.getSize() < 32:
+                threadBalls.remove (i)
+            
+            for j in list (threadBalls):
+                if i != j and i.detectCollision (j):
+                    i.collide (j)
+                    
+        for i in list (rockets):
+            i.update()
+            i.draw (canvas)
+            
+            if i.getPos()[0] + i.getRadius() < 0:
+                rockets.remove (i)
+                
+        for i in list (powerups):
+            i.update()
+            i.draw (canvas)
+            
+            if i.getPos()[0] + i.getRadius() < 0:
+                powerups.remove (i)
+                
+        for i in list (bullets):
+            i.update()
+            i.draw (canvas)
+            
+            if i.getPos()[0] + i.getRadius() < 0 or i.getPos()[0] - i.getRadius() > screenWidth or i.getPos()[1] + i.getRadius() < 0 or i.getPos()[1] - i.getRadius() > screenHeight:
+                bullets.remove (i)
+                
+            i.collide (threadBalls)
+            
+        if score < 10000:
+            generateThreadBalls (False)
+            
+        else:
+            generateThreadBalls (True)
+            
+        generateRockets()
+        generatePowerups()
+    
+        canvas.draw_text ("Score: " + str (score), (screenCenterWidth * 1.35, 50), 20, "White")
+    
+        textWidth = frame.get_canvas_textwidth ("Lives:", 20)
+        canvas.draw_text ("Lives:", (textWidth, 50), 20, "White")
+    
+        for i in xrange (0, lives):
+            canvas.draw_image (catImage, (catInfo.getCenterWidth() / 4, catInfo.getCenterHeight() / 4),
+                              (catInfo.getWidth() / 4, catInfo.getHeight() / 4),
+                              (120 + i * 40, 40), (40, 25) )
+        
+        textWidth = frame.get_canvas_textwidth ("Powerup:", 20)
+        realWidth = (screenWidth - textWidth) / 2.0
+        canvas.draw_text ("Powerup:", (realWidth, 50), 20, "White")
+        
+        if cat.getPowerup() == "Glock17":
+            glockCenterWidth = glock17IconInfo.getCenterWidth() / 9
+                
+            canvas.draw_image (glock17IconInfo.getImage(), (glockCenterWidth + glockCenterWidth * 2 * int (cat.getPowerupTime() / (maxPowerupTime / 9) ), glock17IconInfo.getCenterHeight() ),
+                               (glock17IconInfo.getWidth() / 9, glock17IconInfo.getHeight() ),
+                               (screenCenterWidth + textWidth, 37.5), (50, 50) )
+
+        elif cat.getPowerup() == "AK47":
+            AKCenterWidth = AK47IconInfo.getCenterWidth() / 9
+        
+            canvas.draw_image (AK47IconInfo.getImage(), (AKCenterWidth + AKCenterWidth * 2 * int (cat.getPowerupTime() / (maxPowerupTime / 9) ), AK47IconInfo.getCenterHeight() ),
+                               (AK47IconInfo.getWidth() / 9, AK47IconInfo.getHeight() ),
+                               (screenCenterWidth + textWidth, 37.5), (50, 50) )
+            
+        elif cat.getPowerup() == "RPG7":
+            RPGCenterWidth = RPG7IconInfo.getCenterWidth() / 9
+        
+            canvas.draw_image (RPG7IconInfo.getImage(), (RPGCenterWidth + RPGCenterWidth * 2 * int (cat.getPowerupTime() / (maxPowerupTime / 9) ), RPG7IconInfo.getCenterHeight() ),
+                               (RPG7IconInfo.getWidth() / 9, RPG7IconInfo.getHeight() ),
+                               (screenCenterWidth + textWidth, 37.5), (50, 50) )
+        
+        buttonCenter = 0
+        
+        if sound:
+            buttonCenter = soundButtonInfo.getCenterWidth() * 0.5
+            
+        else:
+            buttonCenter = soundButtonInfo.getCenterWidth() * 1.5
+            
+        canvas.draw_image (soundButtonImage, (buttonCenter, soundButtonInfo.getCenterHeight() ),
+                           (soundButtonInfo.getWidth() / 2, soundButtonInfo.getHeight() ),
+                           (screenCenterWidth * 1.9, 37.5), (64, 64) )
+        
+        canvas.draw_image (pauseButtonImage, (pauseButtonInfo.getCenterWidth() * 0.5, pauseButtonInfo.getCenterHeight() ),
+                           (pauseButtonInfo.getWidth() / 2, pauseButtonInfo.getHeight() ),
+                           (screenCenterWidth * 1.75, 37.5), (64, 64) )
+    
+def generateThreadBalls (deadly):
+    global threadBalls
+                                        
+    if time % 25 == 0:
+        threadBalls.append (ThreadBall (threadBallInfo, deadly) )
+        threadBalls[-1].correctPosition (threadBalls)
+        
+def generateRockets():
+    if time % 200 == 0:
+        rockets.append (Rocket (rocketInfo, rocketWarningInfo) )
+        
+def generatePowerups():
+    if time % 100 == 0 and int (random.random() * 2) % 2 == 0:
+        powerups.append (Powerup (glock17Info, "Glock17") )
+        
+    elif time % 200 == 0 and int (random.random() * 2) % 2 == 0:
+        powerups.append (Powerup (AK47Info, "AK47") )
+        
+    elif time % 400 == 0 and int (random.random() * 2) % 2 == 0:
+        powerups.append (Powerup (RPG7Info, "RPG7") )
+    
+def keyDown (key):
+    global cat
+    
+    if key == simplegui.KEY_MAP['W'] or key == simplegui.KEY_MAP['up']:
+        cat.setVelocity (None, -scrollSpeed)
+        
+    elif key == simplegui.KEY_MAP['A'] or key == simplegui.KEY_MAP['left']:
+        cat.setVelocity (-scrollSpeed, None)
+    
+    elif key == simplegui.KEY_MAP['S'] or key == simplegui.KEY_MAP['down']:
+        cat.setVelocity (None, scrollSpeed)
+        
+    elif key == simplegui.KEY_MAP['D'] or key == simplegui.KEY_MAP['right']:
+        cat.setVelocity (scrollSpeed, None)
+
+def keyUp (key):
+    global moveSpeed
+    
+    if key == simplegui.KEY_MAP['W'] or key == simplegui.KEY_MAP['up']:
+        cat.setVelocity (None, 0)
+        
+    elif key == simplegui.KEY_MAP['A'] or key == simplegui.KEY_MAP['left']:
+        cat.setVelocity (0, None)
+    
+    elif key == simplegui.KEY_MAP['S'] or key == simplegui.KEY_MAP['down']:
+        cat.setVelocity (None, 0)
+        
+    elif key == simplegui.KEY_MAP['D'] or key == simplegui.KEY_MAP['right']:
+        cat.setVelocity (0, None)
+        
+def mouseHandler (click):
+    global dealWithIt, sound, paused
+    
+    if gameOver and contains (click, tryAgainButton):
+        if sound:
+            buttonSound.play()
+        
+        newGame()
+        
+    elif not gameStarted and contains (click, newGameButton):
+        if sound:
+            buttonSound.play()
+            
+        newGame()
+        
+    elif not gameStarted and contains (click, freeSwagButton):
+        if sound:
+            buttonSound.play()
+            
+        dealWithIt = True
+        
+    elif gameStarted and distance (click, (screenCenterWidth * 1.9, 37.5) ) < 32:
+        sound = not sound
+        
+        if not sound:
+            music.pause()
+           
+        else:
+            music.play()
+            
+    elif gameStarted and not paused and distance (click, (screenCenterWidth * 1.75, 37.5) ) < 32:
+        paused = True
+        
+    elif gameStarted and paused and distance (click, (screenCenterWidth * 1.75, 37.5) ) < 32:
+        paused = False
+        
+    elif gameStarted and not paused and not gameOver:
+        if cat.getPowerup() == "Glock17":
+            if sound:
+                glock17BulletSound.play()
+                
+            bullets.append (Bullet (glock17BulletInfo, "Glock17", cat.getPos(), click, 20, 20) )
+            
+        elif cat.getPowerup() == "AK47":
+            if sound:
+                AK47BulletSound.play()
+                
+            bullets.append (Bullet (AK47BulletInfo, "AK47", cat.getPos(), click, 30, 20) )
+            
+        elif cat.getPowerup() == "RPG7":
+            if sound:
+                RPG7MissileSound.play()
+                
+            bullets.append (Bullet (RPG7MissileInfo, "RPG7", cat.getPos(), click, 50, 25) )
+
+def timerHandler():
+    global time, score
+    
+    if not paused:
+        time += 1
+    
+        if time % 10 == 0 and not gameOver:
+            score += 1
+        
+def replayMusic():
+    musicTimer.stop()
+    music.rewind()
+    music.play()
+    musicTimer.start()
+  
+#Create a frame and assign callbacks to event handlers
+frame = simplegui.create_frame ("Nyan Cat Adventures", screenWidth, screenHeight)
+frame.set_draw_handler (draw)
+frame.set_keydown_handler (keyDown)
+frame.set_keyup_handler (keyUp)
+frame.set_mouseclick_handler (mouseHandler)
+
+timer = simplegui.create_timer (1, timerHandler)
+musicTimer = simplegui.create_timer (336000, replayMusic)
+
+#Start the frame animation
+frame.start()
+timer.start()
+musicTimer.start()

@@ -1,0 +1,66 @@
+# CodeSkulptor runs Python programs in your browser.
+# Click the upper left button to run this simple demo.
+
+# CodeSkulptor runs in Chrome 18+, Firefox 11+, and Safari 6+.
+# Some features may work in other browsers, but do not expect
+# full functionality.  It does NOT run in Internet Explorer.
+
+import simplegui
+
+message = "Suskaiciuosim jusu KMI"
+
+# Handler to draw on canvas
+def draw (canvas):
+    textWidth = frame.get_canvas_textwidth (message, 20, "monospace")
+    #300 is canvas width
+    realWidth = (300 - textWidth) / 2
+    canvas.draw_text (message, [realWidth, 100], 20, "Red", "monospace")
+    
+def KMISkaiciuokle (ugis, svoris):
+    #ugis   = float (input ("Iveskite savo ugi") )
+    #svoris = float (input ("Dabar iveskite savo svori") )
+    global message
+    
+    if ugis != ugis or svoris != svoris:
+        message = "Iveskite ugi ir svori"
+        return None
+ 
+    KMI = float (svoris / ugis ** 2)
+    
+    print "ugis = "   + str (ugis)
+    print "svoris = " + str (svoris)
+    print "KMI = "    + str (KMI)
+    
+    if KMI <= 16:
+        message = "Jusu svoris kritiskai mazas"
+    
+    elif KMI <= 18.5:
+        message = "Jusu svoris per mazas"
+    
+    elif KMI <= 24.9:
+        message = "Jusu svoris normalus"
+    
+    elif KMI <= 30:
+        message = "Jus turite antsvorio"
+    
+    else:
+        message = "Jus esate amerikietis"
+
+    return None
+
+def nothing():
+    return None
+
+def skaiciuoti():
+    KMISkaiciuokle (float (input1.get_text() ), float (input2.get_text() ) )
+    return None
+
+# Create a frame and assign callbacks to event handlers
+frame = simplegui.create_frame("Home", 300, 200)
+input1 = frame.add_input ("Ugis", nothing, 50)
+input2 = frame.add_input ("Svoris", nothing, 50)
+frame.add_button ("Skaiciuoti", skaiciuoti)
+frame.set_draw_handler (draw)
+
+# Start the frame animation
+frame.start()
